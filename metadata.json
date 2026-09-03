@@ -1,0 +1,6 @@
+{
+  "name": "SLA Performance",
+  "description": "Resolution KPI monitoring and action center",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
