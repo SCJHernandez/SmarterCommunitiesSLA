@@ -48,7 +48,13 @@ app.UseResponseCompression();
 app.UseCors("AllowReactApp");
 app.UseHttpsRedirection();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Map Endpoints
 app.MapSlaEndpoints();
+
+// Fallback for React Router (Single Page Application)
+app.MapFallbackToFile("index.html");
 
 app.Run();
