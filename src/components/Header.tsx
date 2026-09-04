@@ -6,7 +6,7 @@ export function Header() {
     <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex flex-row items-center justify-between gap-4 z-40 relative">
       <div className="flex items-center gap-3 md:gap-4">
         <img 
-          src="/assets/img/logo/logo-light-full.png" 
+          src="/assets/img/logo/logo-dark-full.png" 
           alt="Company Logo" 
           className="h-6 md:h-8 object-contain"
         />
