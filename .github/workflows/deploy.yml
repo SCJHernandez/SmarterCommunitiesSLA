@@ -1,0 +1,87 @@
+# Builds, checks and deploys the app to Azure App Service (Linux, Node 22) on every push to main.
+#
+# One-off setup (see README → Deployment):
+#   - Repository variable AZURE_WEBAPP_NAME: the App Service name (e.g. smartercommunitiessla-linux)
+#   - Repository secret AZURE_WEBAPP_PUBLISH_PROFILE: the App Service's publish profile (Overview → Download publish profile)
+#   - Optional repository variables NEXT_PUBLIC_PORTAL_NAME, NEXT_PUBLIC_CRM_BASE_URL, NEXT_PUBLIC_CRM_APP_ID
+#     (fixed into the browser code at build time; the defaults in configs/app.config apply when unset)
+# Server settings (DATAVERSE_*, AUTH_*) are App Service application settings, never stored here.
+
+name: Build and deploy
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+# One deployment at a time; a newer push waits rather than cancelling one halfway through
+concurrency:
+    group: deploy-production
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - run: npm ci
+
+            - name: Check (types, lint, formatting, tests)
+              run: |
+                  npm run typecheck
+                  npm run lint
+                  npm run format:check
+                  npm test
+
+            - name: Build
+              run: npm run build
+              env:
+                  NEXT_TELEMETRY_DISABLED: 1
+                  NEXT_PUBLIC_PORTAL_NAME: ${{ vars.NEXT_PUBLIC_PORTAL_NAME }}
+                  NEXT_PUBLIC_CRM_BASE_URL: ${{ vars.NEXT_PUBLIC_CRM_BASE_URL }}
+                  NEXT_PUBLIC_CRM_APP_ID: ${{ vars.NEXT_PUBLIC_CRM_APP_ID }}
+
+            # The standalone server doesn't include static assets: copy them next to server.js. App Service runs
+            # `npm start` when no Startup Command is set, so make that start the standalone server too.
+            - name: Package the standalone server
+              run: |
+                  cp -r public .next/standalone/public
+                  cp -r .next/static .next/standalone/.next/static
+                  npm pkg set scripts.start="node server.js" --prefix .next/standalone
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: app
+                  path: .next/standalone
+                  include-hidden-files: true # the .next folder
+                  retention-days: 7
+
+    deploy:
+        needs: build
+        # Skipped until the App Service exists and AZURE_WEBAPP_NAME is set
+        if: vars.AZURE_WEBAPP_NAME != ''
+        runs-on: ubuntu-latest
+        environment:
+            name: production
+            url: ${{ steps.deploy.outputs.webapp-url }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: app
+                  path: app
+
+            - id: deploy
+              uses: azure/webapps-deploy@v3
+              with:
+                  app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+                  publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+                  package: app

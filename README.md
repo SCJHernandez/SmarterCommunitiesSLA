@@ -72,10 +72,39 @@ npm run dev          # http://localhost:3000
 
 ## Deployment
 
-`npm run build` produces a standalone Node server in `.next/standalone`. Deploy it to Azure App Service (Node 20+)
-with `.next/static` copied to `.next/standalone/.next/static` and `public/` to `.next/standalone/public`; the start
-command is `node server.js`. Set the variables from `.env.prod` / `.env.test` (reference copies, git-ignored) as App
-Service application settings — `NEXT_PUBLIC_*` values are fixed at build time, so build once per environment.
+GitHub Actions (`.github/workflows/deploy.yml`) runs on every push to `main`: type check, lint, format check, tests,
+`npm run build`, then deploys the standalone server (`.next/standalone` with `.next/static` and `public/` copied in)
+to Azure App Service. The deploy step is skipped until `AZURE_WEBAPP_NAME` is set.
+
+The App Service must be **Linux** with **Node 22 LTS**. (On Windows, IIS gives Node a named pipe instead of a port,
+which the Next.js standalone server can't listen on.)
+
+One-off setup:
+
+1. **App Service** (Linux, Node 22 LTS). Then, in its **Configuration**:
+    - **General settings → Startup Command**: `node server.js`
+    - **General settings → SCM Basic Auth Publishing Credentials**: On (needed for the publish profile)
+    - **Application settings**: `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false`, plus every setting below
+2. **GitHub → Settings → Secrets and variables → Actions**:
+    - Secret `AZURE_WEBAPP_PUBLISH_PROFILE`: the file from the App Service's **Overview → Download publish profile**
+    - Variable `AZURE_WEBAPP_NAME`: the App Service name
+    - Optional variables `NEXT_PUBLIC_PORTAL_NAME`, `NEXT_PUBLIC_CRM_BASE_URL`, `NEXT_PUBLIC_CRM_APP_ID` (fixed at
+      build time)
+3. Push to `main`, or run the workflow from the **Actions** tab (**Run workflow**).
+
+| Application setting                                                                      | Value                                                                  |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `DATAVERSE_URL`, `DATAVERSE_TENANT_ID`, `DATAVERSE_CLIENT_ID`, `DATAVERSE_CLIENT_SECRET` | Dataverse app registration (client credentials)                        |
+| `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`                                                   | Sign-in app registration (may be the same one); the secret's **Value** |
+| `AUTH_TENANT_ID`                                                                         | Optional: defaults to `DATAVERSE_TENANT_ID`                            |
+| `AUTH_SESSION_SECRET`                                                                    | 48+ random characters, different per environment                       |
+| `AUTH_BASE_URL`                                                                          | The app's public address, e.g. `https://<app>.azurewebsites.net`       |
+| `AUTH_DEFAULT_ROLE`                                                                      | `none` (only people given a role get in) or `Viewer`                   |
+| `AUTH_ALLOWED_EMAIL_DOMAINS`                                                             | `smartercommunities.com.au,smarterdirectory.com.au`                    |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT`                                                         | `false` (the package is already built)                                 |
+
+Never set `AUTH_DISABLED` in Azure (production builds ignore it anyway). `.env.prod` / `.env.test` are git-ignored
+reference copies of these settings.
 
 ## What the dashboard shows
 

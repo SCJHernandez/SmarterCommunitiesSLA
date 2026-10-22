@@ -1,0 +1,7 @@
+# LF everywhere, so Prettier's check passes on every machine (and on the Linux build in GitHub Actions)
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
