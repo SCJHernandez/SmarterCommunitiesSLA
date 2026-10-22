@@ -1,8 +1,14 @@
 node_modules/
+.next/
+out/
 build/
-dist/
 coverage/
+next-env.d.ts
+*.tsbuildinfo
 .DS_Store
 *.log
 .env*
 !.env.example
+
+# Local cache (profile photos)
+uploads/
